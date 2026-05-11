@@ -4,7 +4,7 @@ The Northern Lights Hunter development environment supports running multiple ins
 
 ## Quick Start
 
-### Option 1: Automatic Port Assignment
+### Option 1: Automatic Port Assignment (Recommended)
 
 Each worktree/folder automatically gets unique ports based on its path:
 
@@ -12,7 +12,7 @@ Each worktree/folder automatically gets unique ports based on its path:
 # In first worktree
 .\Run.ps1
 
-# In second worktree (opens in a new terminal)
+# In second worktree (open in a new terminal)
 .\Run.ps1
 ```
 
@@ -23,7 +23,7 @@ The script will automatically:
 
 ### Option 2: Manual Port Assignment
 
-Specify custom ports explicitly:
+Specify custom ports explicitly when you need specific port numbers:
 
 ```powershell
 # Instance 1
@@ -31,24 +31,9 @@ Specify custom ports explicitly:
 
 # Instance 2
 .\Run.ps1 -BackendPort 5002 -FrontendPort 5175
-```
 
-### Option 3: Using the Helper Script (In Development)
-
-The `Run-Instance.ps1` helper script provides additional management features:
-
-```powershell
-# Start an instance with a name
-.\Run-Instance.ps1 -Name "feature-aurora"
-
-# Start with specific ports
-.\Run-Instance.ps1 -Name "bugfix-123" -BackendPort 5003 -FrontendPort 5176
-
-# List all running instances
-.\Run-Instance.ps1 -List
-
-# Stop all instances
-.\Run-Instance.ps1 -StopAll
+# Without browser auto-open (useful for 2nd+ instances)
+.\Run.ps1 -BackendPort 5003 -FrontendPort 5176 -NoBrowser
 ```
 
 ## Parameters
@@ -123,16 +108,6 @@ If you get port errors:
 2. Verify dependencies are installed
 3. Look at job output for errors (displayed in terminal)
 
-### Temporary Vite Config Not Cleaned Up
-
-The script creates `vite.config.temp.<port>.ts` files. These are normally cleaned up automatically, but if a job crashes:
-
-```powershell
-# Clean up manually
-cd frontend
-Remove-Item vite.config.temp.*.ts
-```
-
 ## Best Practices
 
 1. **Use worktrees for isolation** - Each feature branch in its own worktree
@@ -143,7 +118,7 @@ Remove-Item vite.config.temp.*.ts
 ## Architecture Notes
 
 - Backend port is passed via inline Python execution with custom port parameter
-- Frontend port is configured via temporary Vite config file
-- Vite proxy automatically points to the correct backend port
+- Frontend port is passed directly to `vite` CLI via `--port` flag
+- Vite config reads backend URL from `VITE_API_URL` environment variable for proxy configuration
 - All ports are validated for availability before starting
-- Job cleanup ensures temporary configs are removed on exit
+- Each instance runs in PowerShell background jobs with output streaming
