@@ -93,40 +93,12 @@ $frontendJob = Start-Job -ScriptBlock {
     Set-Location $using:PWD
     Set-Location frontend
 
-    # Create a temporary vite config that uses the custom ports
-    $viteConfigContent = "import { defineConfig } from 'vite'`n" +
-                        "import react from '@vitejs/plugin-react'`n" +
-                        "import path from 'path'`n`n" +
-                        "export default defineConfig({`n" +
-                        "  plugins: [react()],`n" +
-                        "  resolve: {`n" +
-                        "    alias: {`n" +
-                        "      '@': path.resolve(__dirname, './src'),`n" +
-                        "    },`n" +
-                        "  },`n" +
-                        "  server: {`n" +
-                        "    port: $FrontendPort,`n" +
-                        "    strictPort: true,`n" +
-                        "    proxy: {`n" +
-                        "      '/api': {`n" +
-                        "        target: 'http://localhost:$BackendPort',`n" +
-                        "        changeOrigin: true,`n" +
-                        "      },`n" +
-                        "    },`n" +
-                        "  },`n" +
-                        "})`n"
+    # Set environment variables for Vite
+    $env:VITE_PORT = $FrontendPort
+    $env:VITE_API_URL = "http://localhost:$BackendPort"
 
-    $tempConfig = "vite.config.temp.$FrontendPort.ts"
-    Set-Content -Path $tempConfig -Value $viteConfigContent
-
-    try {
-        npm run dev -- --config $tempConfig
-    }
-    finally {
-        if (Test-Path $tempConfig) {
-            Remove-Item $tempConfig -Force
-        }
-    }
+    # Run Vite with port override
+    npm run dev -- --port $FrontendPort
 } -ArgumentList $FrontendPort, $BackendPort
 
 # Wait for servers to start
