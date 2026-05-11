@@ -94,30 +94,27 @@ $frontendJob = Start-Job -ScriptBlock {
     Set-Location frontend
 
     # Create a temporary vite config that uses the custom ports
-    $viteConfigContent = @"
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
-  server: {
-    port: $FrontendPort,
-    strictPort: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:$BackendPort',
-        changeOrigin: true,
-      },
-    },
-  },
-})
-"@
+    $viteConfigContent = "import { defineConfig } from 'vite'`n" +
+                        "import react from '@vitejs/plugin-react'`n" +
+                        "import path from 'path'`n`n" +
+                        "export default defineConfig({`n" +
+                        "  plugins: [react()],`n" +
+                        "  resolve: {`n" +
+                        "    alias: {`n" +
+                        "      '@': path.resolve(__dirname, './src'),`n" +
+                        "    },`n" +
+                        "  },`n" +
+                        "  server: {`n" +
+                        "    port: $FrontendPort,`n" +
+                        "    strictPort: true,`n" +
+                        "    proxy: {`n" +
+                        "      '/api': {`n" +
+                        "        target: 'http://localhost:$BackendPort',`n" +
+                        "        changeOrigin: true,`n" +
+                        "      },`n" +
+                        "    },`n" +
+                        "  },`n" +
+                        "})`n"
 
     $tempConfig = "vite.config.temp.$FrontendPort.ts"
     Set-Content -Path $tempConfig -Value $viteConfigContent
