@@ -1,7 +1,52 @@
 #!/usr/bin/env pwsh
 # Northern Lights Hunter - Development Server Launcher
+# Supports running multiple instances in parallel with unique ports
+
+param(
+    [int]$BackendPort = 0,
+    [int]$FrontendPort = 0,
+    [switch]$NoBrowser
+)
+
+# Function to find an available port
+function Get-AvailablePort {
+    param([int]$StartPort)
+    $port = $StartPort
+    while ($true) {
+        $listener = $null
+        try {
+            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+            $listener.Start()
+            $listener.Stop()
+            return $port
+        }
+        catch {
+            $port++
+        }
+        finally {
+            if ($listener) { $listener.Stop() }
+        }
+    }
+}
+
+# Auto-assign ports based on folder name hash if not specified
+if ($BackendPort -eq 0 -or $FrontendPort -eq 0) {
+    # Generate a consistent offset based on the current directory path
+    $pathHash = ($PWD.Path.GetHashCode() -band 0x7FFFFFFF) % 100
+    $baseBackendPort = 5000 + $pathHash
+    $baseFrontendPort = 5173 + $pathHash
+
+    if ($BackendPort -eq 0) {
+        $BackendPort = Get-AvailablePort -StartPort $baseBackendPort
+    }
+    if ($FrontendPort -eq 0) {
+        $FrontendPort = Get-AvailablePort -StartPort $baseFrontendPort
+    }
+}
 
 Write-Host "🌌 Starting Northern Lights Hunter..." -ForegroundColor Cyan
+Write-Host "   Backend Port:  $BackendPort" -ForegroundColor White
+Write-Host "   Frontend Port: $FrontendPort" -ForegroundColor White
 
 # Check if virtual environment exists for backend
 if (-not (Test-Path "backend\venv")) {
@@ -32,20 +77,60 @@ if (-not (Test-Path "frontend\node_modules")) {
 }
 
 # Start backend server
-Write-Host "`n🐍 Starting Flask backend on http://localhost:5000..." -ForegroundColor Magenta
+Write-Host "`n🐍 Starting Flask backend on http://localhost:$BackendPort..." -ForegroundColor Magenta
 $backendJob = Start-Job -ScriptBlock {
+    param($Port)
     Set-Location $using:PWD
     Set-Location backend
-    & venv\Scripts\python.exe app.py
-}
+    $env:FLASK_RUN_PORT = $Port
+    & venv\Scripts\python.exe -c "from app import create_app; app = create_app(); app.run(debug=True, port=$Port, host='127.0.0.1')"
+} -ArgumentList $BackendPort
 
 # Start frontend server
-Write-Host "⚛️  Starting Vite frontend on http://localhost:5173..." -ForegroundColor Magenta
+Write-Host "⚛️  Starting Vite frontend on http://localhost:$FrontendPort..." -ForegroundColor Magenta
 $frontendJob = Start-Job -ScriptBlock {
+    param($FrontendPort, $BackendPort)
     Set-Location $using:PWD
     Set-Location frontend
-    npm run dev
-}
+
+    # Create a temporary vite config that uses the custom ports
+    $viteConfigContent = @"
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: $FrontendPort,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:$BackendPort',
+        changeOrigin: true,
+      },
+    },
+  },
+})
+"@
+
+    $tempConfig = "vite.config.temp.$FrontendPort.ts"
+    Set-Content -Path $tempConfig -Value $viteConfigContent
+
+    try {
+        npm run dev -- --config $tempConfig
+    }
+    finally {
+        if (Test-Path $tempConfig) {
+            Remove-Item $tempConfig -Force
+        }
+    }
+} -ArgumentList $FrontendPort, $BackendPort
 
 # Wait for servers to start
 Write-Host "`n⏳ Waiting for servers to start..." -ForegroundColor Yellow
@@ -60,13 +145,16 @@ if ($backendRunning -and $frontendRunning) {
     Write-Host "✓ Frontend running (Job ID: $($frontendJob.Id))" -ForegroundColor Green
 
     # Open browser
-    Write-Host "`n🌐 Opening browser..." -ForegroundColor Cyan
-    Start-Sleep -Seconds 2
-    Start-Process "http://localhost:5173"
+    if (-not $NoBrowser) {
+        Write-Host "`n🌐 Opening browser..." -ForegroundColor Cyan
+        Start-Sleep -Seconds 2
+        Start-Process "http://localhost:$FrontendPort"
+    }
 
     Write-Host "`n✨ Northern Lights Hunter is running!" -ForegroundColor Green
-    Write-Host "   Frontend: http://localhost:5173" -ForegroundColor White
-    Write-Host "   Backend:  http://localhost:5000" -ForegroundColor White
+    Write-Host "   Frontend: http://localhost:$FrontendPort" -ForegroundColor White
+    Write-Host "   Backend:  http://localhost:$BackendPort" -ForegroundColor White
+    Write-Host "   Instance: $($PWD.Path | Split-Path -Leaf)" -ForegroundColor DarkGray
     Write-Host "`nPress Ctrl+C to stop all servers`n" -ForegroundColor Yellow
 
     # Keep script running and show output
