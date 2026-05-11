@@ -97,8 +97,8 @@ $frontendJob = Start-Job -ScriptBlock {
     $env:VITE_PORT = $FrontendPort
     $env:VITE_API_URL = "http://localhost:$BackendPort"
 
-    # Run Vite with port override
-    npm run dev -- --port $FrontendPort
+    # Run Vite directly with port (not through npm to avoid arg parsing issues)
+    npx vite --port $FrontendPort
 } -ArgumentList $FrontendPort, $BackendPort
 
 # Wait for servers to start
