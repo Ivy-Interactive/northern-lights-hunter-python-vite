@@ -9,7 +9,6 @@ import {
   Calendar,
   BookOpen,
   FileText,
-  Settings,
 } from '@/components/icon'
 import ForecastPage from '@/pages/ForecastPage'
 import ConditionsPage from '@/pages/ConditionsPage'
@@ -66,9 +65,6 @@ export default function App() {
             <button className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--hairline)] bg-ink-2/60 backdrop-blur-sm text-sm text-white/80 hover:border-[var(--hairline-strong)] transition-colors">
               <MapPin className="w-3.5 h-3.5 text-aurora-cyan" />
               <span>Tromsoe, Norway</span>
-            </button>
-            <button className="p-2 rounded-lg border border-[var(--hairline)] bg-ink-2/60 backdrop-blur-sm text-white/60 hover:text-white/90 hover:border-[var(--hairline-strong)] transition-colors">
-              <Settings className="w-4 h-4" />
             </button>
           </div>
         </header>
